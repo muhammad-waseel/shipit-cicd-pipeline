@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="ShipIt: live status of Muhammad Waseel's projects, deployed by a GitHub Actions CI/CD pipeline." />
+  <title>ShipIt · Project Status</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23111827'/><path d='M50 18l26 44H24z' fill='%2334d399'/><rect x='30' y='66' width='40' height='10' rx='3' fill='%2334d399'/></svg>" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="mark">▲</span> ShipIt</div>
+    <a class="gh" href="https://github.com/muhammad-waseel/shipit-cicd-pipeline" target="_blank" rel="noreferrer">View pipeline on GitHub ↗</a>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1 id="headline">Checking services…</h1>
+      <p class="muted">Live status of my deployed projects. This page is built, tested, scanned and deployed automatically by a GitHub Actions pipeline on every push.</p>
+      <div class="meta">
+        <span>Last checked: <b id="checked">–</b></span>
+        <button id="refresh" type="button">Refresh</button>
+      </div>
+    </section>
+
+    <section id="services" class="grid" aria-live="polite"></section>
+
+    <section class="pipeline">
+      <h2>How this page ships</h2>
+      <ol class="steps">
+        <li><b>Lint &amp; test</b><span>ESLint + Node test runner with coverage</span></li>
+        <li><b>Security scan</b><span>npm audit + GitHub CodeQL</span></li>
+        <li><b>Build &amp; smoke test</b><span>Docker image started and health-checked</span></li>
+        <li><b>Publish</b><span>Image pushed to GitHub Container Registry</span></li>
+        <li><b>Deploy</b><span>Render deploy triggered by the pipeline</span></li>
+        <li><b>Verify</b><span>Waits until the live commit matches the pushed commit</span></li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Version <b id="version">–</b> · commit <code id="commit">–</code></span>
+    <span>Built by <a href="https://muhammad-waseel.github.io" target="_blank" rel="noreferrer">Muhammad Waseel</a></span>
+  </footer>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

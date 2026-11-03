@@ -1,0 +1,139 @@
+name: CI/CD pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/shipit
+  LIVE_URL: https://shipit-waseel.onrender.com
+
+jobs:
+  # 1. Code quality
+  test:
+    name: Lint & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+
+  # 2. Security
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: npm audit (production dependencies)
+        run: npm audit --omit=dev --audit-level=high
+      - name: CodeQL init
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+      - name: CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+
+  # 3. Build the image and prove it runs
+  build:
+    name: Build & smoke test image
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build Docker image
+        run: docker build --build-arg GIT_COMMIT=${{ github.sha }} -t shipit:${{ github.sha }} .
+      - name: Smoke test the container
+        run: |
+          docker run -d --name shipit -p 3000:3000 shipit:${{ github.sha }}
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:3000/api/health > health.json; then break; fi
+            sleep 1
+          done
+          cat health.json
+          grep -q '"status":"ok"' health.json
+          grep -q '"commit":"${{ github.sha }}"' health.json
+          curl -fsS http://127.0.0.1:3000/ | grep -q "<title>ShipIt"
+          docker rm -f shipit
+      - name: Save image for the publish job
+        run: docker save shipit:${{ github.sha }} | gzip > image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image
+          path: image.tar.gz
+          retention-days: 1
+
+  # 4. Publish to GitHub Container Registry (main branch only)
+  publish:
+    name: Publish to GHCR
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Tag and push
+        run: |
+          docker load < image.tar.gz
+          docker tag shipit:${{ github.sha }} $IMAGE:${{ github.sha }}
+          docker tag shipit:${{ github.sha }} $IMAGE:latest
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
+
+  # 5 + 6. Deploy to Render and verify the live commit
+  deploy:
+    name: Deploy & verify
+    runs-on: ubuntu-latest
+    needs: publish
+    environment:
+      name: production
+      url: ${{ env.LIVE_URL }}
+    steps:
+      - name: Trigger Render deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then echo "::error::RENDER_DEPLOY_HOOK_URL secret is not set"; exit 1; fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "Deploy triggered for ${GITHUB_SHA::7}"
+      - name: Wait until the live site runs this commit
+        run: |
+          for i in $(seq 1 60); do
+            live=$(curl -fsS --max-time 30 "$LIVE_URL/api/health" | sed -n 's/.*"commit":"\([^"]*\)".*/\1/p' || true)
+            echo "attempt $i: live commit=${live:-unreachable}"
+            if [ "$live" = "$GITHUB_SHA" ]; then echo "✅ Live site is running ${GITHUB_SHA::7}"; exit 0; fi
+            sleep 15
+          done
+          echo "::error::Timed out waiting for ${GITHUB_SHA::7} to go live"
+          exit 1
+      - name: Post-deploy smoke test
+        run: |
+          curl -fsS "$LIVE_URL/api/health" | grep -q '"status":"ok"'
+          curl -fsS "$LIVE_URL/" | grep -q "<title>ShipIt"
+          curl -fsS "$LIVE_URL/api/status" | grep -q '"services"'
+          echo "✅ Production smoke test passed"
