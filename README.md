@@ -6,7 +6,7 @@ The app it ships is **ShipIt**, a small status page that checks whether my live 
 
 ![CI/CD pipeline](https://github.com/muhammad-waseel/shipit-cicd-pipeline/actions/workflows/pipeline.yml/badge.svg)
 
-**Live demo:** LIVE_URL_PLACEHOLDER
+**Live demo:** https://shipit-waseel-ih30.onrender.com
 *(Hosted on Render's free plan. The first visit after a quiet period can take about 50 seconds.)*
 
 ## The pipeline

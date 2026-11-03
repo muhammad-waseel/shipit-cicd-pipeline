@@ -12,7 +12,7 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/shipit
-  LIVE_URL: https://shipit-waseel.onrender.com
+  LIVE_URL: https://shipit-waseel-ih30.onrender.com
 
 jobs:
   # 1. Code quality
