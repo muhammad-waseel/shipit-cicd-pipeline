@@ -14,7 +14,7 @@ The app it ships is **ShipIt**, a small status page that checks whether my live 
 ```
 push to main
    │
-   ├─► 1. Lint & test ─────────┐   ESLint + Node test runner (18 tests, 100% line coverage)
+   ├─► 1. Lint & test ─────────┐   ESLint + Node test runner (21 tests, 100% line coverage)
    ├─► 2. Security scan ───────┤   npm audit + GitHub CodeQL (security-extended)
    │                           ▼
    │                  3. Build & smoke test   Docker image built, started and health-checked

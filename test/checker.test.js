@@ -32,11 +32,19 @@ test('a slow response is reported as slow', async () => {
 });
 
 test('an HTTP error is reported as down', async () => {
-  const fetchImpl = async () => ({ ok: false, status: 503 });
+  const fetchImpl = async () => ({ ok: false, status: 500 });
   const r = await checkService(svc, { fetchImpl });
   assert.equal(r.state, 'down');
-  assert.equal(r.httpStatus, 503);
+  assert.equal(r.httpStatus, 500);
 });
+
+for (const status of [429, 502, 503]) {
+  test(`HTTP ${status} from a waking free instance is reported as sleeping`, async () => {
+    const fetchImpl = async () => ({ ok: false, status });
+    const r = await checkService(svc, { fetchImpl });
+    assert.equal(r.state, 'sleeping');
+  });
+}
 
 test('a network failure is reported as down and unreachable', async () => {
   const fetchImpl = async () => { throw new TypeError('fetch failed'); };

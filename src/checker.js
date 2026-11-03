@@ -2,9 +2,12 @@
 // so visiting the status page never hammers the apps it watches.
 
 const SLOW_MS = 3000;
+// Render's free plan answers with these while a sleeping app is starting up.
+const WAKING_STATUSES = new Set([429, 502, 503]);
 
-function classify({ ok, ms, timedOut }) {
+function classify({ ok, ms, timedOut, status }) {
   if (timedOut) return 'sleeping'; // free Render apps take ~50s to wake up
+  if (WAKING_STATUSES.has(status)) return 'sleeping';
   if (!ok) return 'down';
   if (ms > SLOW_MS) return 'slow';
   return 'up';
@@ -21,7 +24,7 @@ async function checkService(service, { fetchImpl = fetch, timeoutMs = 8000, now 
       redirect: 'follow',
     });
     const ms = now() - started;
-    return { id: service.id, name: service.name, httpStatus: res.status, ms, state: classify({ ok: res.ok, ms }) };
+    return { id: service.id, name: service.name, httpStatus: res.status, ms, state: classify({ ok: res.ok, ms, status: res.status }) };
   } catch (err) {
     const ms = now() - started;
     const timedOut = err.name === 'AbortError';
@@ -53,4 +56,4 @@ function createChecker(services, { cacheMs = 60000, now = Date.now, ...options }
   };
 }
 
-module.exports = { checkService, createChecker, classify, SLOW_MS };
+module.exports = { checkService, createChecker, classify, SLOW_MS, WAKING_STATUSES };
